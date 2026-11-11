@@ -8,16 +8,26 @@ export async function post(path: string, body: any) {
   return r.json();
 }
 const br = (v: number) => (v / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+const esc = (s: any) => String(s ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+const todayBR = () => new Date().toISOString().slice(0, 10);
+// Abre o documento em nova janela e chama a impressão — o navegador oferece
+// imprimir ou "Salvar como PDF". Usado pelo relatório por tipo e pelo contrato.
+function printDoc(title: string, inner: string) {
+  const w = window.open("", "_blank", "width=900,height=700");
+  if (!w) { alert("Permita pop-ups para abrir o documento para impressão/PDF."); return; }
+  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(title)}</title><style>body{font-family:Arial,sans-serif;color:#111;margin:14mm;font-size:11pt;line-height:1.5}h1{font-size:18pt;margin:0 0 3mm}h2{font-size:13pt;margin:6mm 0 2mm}table{width:100%;border-collapse:collapse;margin:3mm 0}th,td{border:0.5pt solid #999;padding:2mm;text-align:left;font-size:10pt}th{background:#eee}.muted{color:#555;font-size:9.5pt}.sign{margin-top:16mm;display:flex;justify-content:space-between}.sign div{width:45%;border-top:0.7pt solid #111;padding-top:2mm;text-align:center;font-size:10pt}</style></head><body>${inner}<script>window.onload=function(){window.print();};<\/script></body></html>`);
+  w.document.close();
+}
 
-export function Planner({ d, reload, actor }: { d: Overview; reload: () => void; actor: string }) {
+export function Planner({ d, reload, actor, role }: { d: Overview; reload: () => void; actor: string; role: string }) {
   const [view, setView] = useState("mensal");
-  const [form, setForm] = useState({ title: "", clientName: "", date: new Date().toISOString().slice(0, 10), startTime: "09:00", serviceType: "ensaio", location: "" });
+  const [form, setForm] = useState({ clientName: "", date: new Date().toISOString().slice(0, 10), startTime: "09:00", serviceType: "ensaio", location: "" });
   const conflicts = d.appointments.filter((a, i, arr) => arr.some((b, j) => i !== j && a.date === b.date && a.startTime === b.startTime));
   const sorted = [...d.appointments].sort((a, b) => (a.date + a.startTime).localeCompare(b.date + b.startTime));
   const byDay = view === "diario" ? sorted.filter(a => a.date === form.date) : sorted;
   return (<div>
     <div className="card"><h2>Planner</h2>
-      <p className="muted">Calendário mensal / semanal / diário. O alerta de conflito aparece sem bloquear o salvamento — igual ao original.</p>
+      <p className="muted">Calendário mensal / semanal / diário. O compromisso usa o nome do serviço como título. Em caso de conflito de data e hora, só o Administrador pode confirmar a marcação — os demais perfis são bloqueados.</p>
       {conflicts.length > 0 && <p><span className="badge red">⚠ Conflito de horário</span> {conflicts.map(c => `${c.title} — ${c.date} ${c.startTime}`).join(" · ")}</p>}
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         {(["mensal", "semanal", "diario"] as const).map(v => <button key={v} className={view === v ? "" : "ghost"} onClick={() => setView(v)}>{v}</button>)}
@@ -28,14 +38,23 @@ export function Planner({ d, reload, actor }: { d: Overview; reload: () => void;
     </div>
     <div className="card"><h3>Novo compromisso</h3>
       <div className="grid cols2">
-        <input placeholder="Título" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
         <input placeholder="Cliente" value={form.clientName} onChange={e => setForm({ ...form, clientName: e.target.value })} />
         <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
         <input type="time" value={form.startTime} onChange={e => setForm({ ...form, startTime: e.target.value })} />
         <select value={form.serviceType} onChange={e => setForm({ ...form, serviceType: e.target.value })}>{Object.keys(CATEGORY_LABELS).map(k => <option key={k} value={k}>{CATEGORY_LABELS[k]}</option>)}</select>
         <input placeholder="Local" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} />
       </div>
-      <p style={{ marginTop: 10 }}><button onClick={async () => { if (!form.title || !form.date) return alert("Informe título e data."); await post("/api/planner", { action: "create-appointment", ...form }); setForm({ ...form, title: "", clientName: "" }); reload(); }}>Salvar compromisso</button></p>
+      <p className="muted">O título do compromisso será o nome do serviço selecionado ({CATEGORY_LABELS[form.serviceType]}).</p>
+      <p style={{ marginTop: 10 }}><button onClick={async () => {
+        if (!form.date) return alert("Informe a data.");
+        const title = CATEGORY_LABELS[form.serviceType] || form.serviceType;
+        const clash = d.appointments.some(a => a.date === form.date && a.startTime === form.startTime);
+        if (clash && role !== "administrador") return alert("Já existe um compromisso neste dia e horário. Só o Administrador pode marcar mais de um evento no mesmo horário.");
+        if (clash && !confirm(`Já existe um compromisso em ${form.date} às ${form.startTime}. Como Administrador, deseja marcar mesmo assim?`)) return;
+        const r = await post("/api/planner", { action: "create-appointment", ...form, title, actorRole: role });
+        if (!r.ok) return alert(r.error || "Não foi possível salvar o compromisso.");
+        setForm({ ...form, clientName: "" }); reload();
+      }}>Salvar compromisso</button></p>
       <h3>Tarefas</h3>
       {d.tasks.map(t => <p key={t.id}><input type="checkbox" checked={t.done} onChange={async () => { await post("/api/planner", { action: "toggle-task", id: t.id }); reload(); }} /> {t.title} <span className="muted">— {t.assignee} · {t.priority}{t.dueDate ? ` · até ${t.dueDate}` : ""}</span></p>)}
     </div>
@@ -46,7 +65,8 @@ export function Clients({ d, reload }: { d: Overview; reload: () => void }) {
   const [tab, setTab] = useState("clientes");
   const [client, setClient] = useState({ name: "", phone: "", email: "" });
   const [svc, setSvc] = useState({ name: "", category: "casamento", price: "" });
-  const [budget, setBudget] = useState({ clientId: "", serviceId: "", discount: "0", eventDate: "", startTime: "09:00" });
+  const [budget, setBudget] = useState({ clientId: "", discount: "0", eventDate: "", startTime: "09:00" });
+  const [selServices, setSelServices] = useState<number[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const sel = d.clients.find(c => c.id === selected);
   const selBudgets = d.budgets.filter(b => b.clientId === selected);
@@ -83,11 +103,19 @@ export function Clients({ d, reload }: { d: Overview; reload: () => void }) {
       <h3>Novo orçamento</h3>
       <div className="grid cols2">
         <select value={budget.clientId} onChange={e => setBudget({ ...budget, clientId: e.target.value })}><option value="">Cliente…</option>{d.clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-        <select value={budget.serviceId} onChange={e => setBudget({ ...budget, serviceId: e.target.value })}><option value="">Serviço…</option>{d.services.map(sv => <option key={sv.id} value={sv.id}>{sv.name} — {fmtMoney(sv.price)}</option>)}</select>
         <input placeholder="Desconto (R$)" inputMode="decimal" value={budget.discount} onChange={e => setBudget({ ...budget, discount: e.target.value })} />
         <input type="date" value={budget.eventDate} onChange={e => setBudget({ ...budget, eventDate: e.target.value })} />
       </div>
-      <p style={{ marginTop: 10 }}><button onClick={async () => { const sv = d.services.find(x => x.id === Number(budget.serviceId)); if (!budget.clientId || !sv) return alert("Escolha cliente e serviço."); await post("/api/clients", { action: "create-budget", clientId: Number(budget.clientId), discount: Number(budget.discount || 0), items: [{ serviceId: sv.id, serviceName: sv.name, unitPrice: sv.price / 100, quantity: 1 }] }); reload(); }}>Criar orçamento (rascunho)</button></p>
+      <h3>Serviços orçados — marque um ou mais</h3>
+      {d.services.length === 0 && <p className="muted">Cadastre serviços no catálogo primeiro.</p>}
+      {d.services.map(sv => <p key={sv.id}><label><input type="checkbox" checked={selServices.includes(sv.id)} onChange={e => setSelServices(e.target.checked ? [...selServices, sv.id] : selServices.filter(x => x !== sv.id))} /> {sv.name} — {fmtMoney(sv.price)}</label></p>)}
+      {selServices.length > 0 && <p><b>Total estimado:</b> {fmtMoney(selServices.reduce((a, id) => a + (d.services.find(x => x.id === id)?.price || 0), 0) - Math.round(Number(budget.discount || 0) * 100))}</p>}
+      <p style={{ marginTop: 10 }}><button onClick={async () => {
+        const items = selServices.map(id => { const sv = d.services.find(x => x.id === id)!; return { serviceId: sv.id, serviceName: sv.name, unitPrice: sv.price / 100, quantity: 1 }; });
+        if (!budget.clientId || items.length === 0) return alert("Escolha o cliente e pelo menos um serviço.");
+        await post("/api/clients", { action: "create-budget", clientId: Number(budget.clientId), discount: Number(budget.discount || 0), items });
+        setSelServices([]); reload();
+      }}>Criar orçamento (rascunho)</button></p>
       <p className="muted">Ao aprovar, o sistema gera o agendamento no Planner, as parcelas no Financeiro e o cartão no Kanban — como na Fase 3.</p>
     </div>}
   </div>);
@@ -164,10 +192,70 @@ export function Team({ d, reload }: { d: Overview; reload: () => void }) {
 
 export function Contracts({ d, reload, actor }: { d: Overview; reload: () => void; actor: string }) {
   const [form, setForm] = useState({ clientId: "", templateId: "", serviceLabel: "", eventDate: "", location: "", amount: "" });
+  function openContractPdf(c: any) {
+    const client = d.clients.find(x => x.id === c.clientId);
+    const body = esc(c.body || "Contrato sem texto.").replaceAll("\n", "<br>");
+    printDoc(`Contrato #${c.id} — ${client?.name || ""}`, `
+      <h1>STUDIO MANAGER — Contrato de prestação de serviços fotográficos</h1>
+      <p class="muted">Contrato #${c.id} · versão ${c.currentVersion} · status: ${c.status} · emitido em ${c.date || ""}</p>
+      <table>
+        <tr><th>Cliente</th><td>${esc(client?.name || "—")}</td></tr>
+        <tr><th>Serviço</th><td>${esc(c.serviceLabel || "—")}</td></tr>
+        <tr><th>Data do evento</th><td>${esc(c.eventDate || "—")}</td></tr>
+        <tr><th>Local</th><td>${esc(c.location || "—")}</td></tr>
+        <tr><th>Valor total</th><td>${c.amount != null ? fmtMoney(c.amount) : "—"}</td></tr>
+      </table>
+      <h2>Contrato</h2>
+      <p>${body}</p>
+      <div class="sign"><div>Contratante — ${esc(client?.name || "")}</div><div>Contratado — Studio Manager</div></div>
+      <p class="muted" style="margin-top:8mm">Documento gerado pelo Studio Manager em ${todayBR()}. Guarde uma via assinada por cada parte.</p>`);
+  }
+  // Relatório completo por tipo de serviço (13 categorias): renda e aceitação.
+  const totalContratado = d.budgets.filter(b => b.status === "aprovado").reduce((a, b) => a + b.total, 0);
+  const today = todayBR();
+  const byType = Object.entries(CATEGORY_LABELS).map(([cat, label]) => {
+    const svcIds = d.services.filter(sv => sv.category === cat).map(sv => sv.id);
+    const allBudgets = d.budgets.filter(b => b.items.some(i => i.serviceId && svcIds.includes(i.serviceId)));
+    const approved = allBudgets.filter(b => b.status === "aprovado");
+    // Rateio por item: o valor de cada orçamento é dividido entre os tipos
+    // pelos itens — um orçamento com 2 serviços não conta o total cheio nos dois.
+    let contratado = 0, recebido = 0, aReceber = 0, vencido = 0;
+    for (const b of approved) {
+      const itemsTotal = b.items.reduce((a, i) => a + i.unitPrice * i.quantity, 0) || 1;
+      const catItems = b.items.filter(i => i.serviceId && svcIds.includes(i.serviceId)).reduce((a, i) => a + i.unitPrice * i.quantity, 0);
+      const share = catItems / itemsTotal;
+      contratado += Math.round(catItems - (b.discount || 0) * share);
+      for (const inst of d.installments.filter(i => i.budgetId === b.id && !i.cancelled)) {
+        recebido += Math.round(inst.paidAmount * share);
+        aReceber += Math.round((inst.amount - inst.paidAmount) * share);
+        if (inst.paidAmount < inst.amount && inst.dueDate < today) vencido += Math.round((inst.amount - inst.paidAmount) * share);
+      }
+    }
+    return { cat, label, trabalhos: approved.length, orcamentos: allBudgets.length, aceitacao: allBudgets.length ? Math.round((approved.length / allBudgets.length) * 100) : 0, contratado, recebido, aReceber, vencido, ticket: approved.length ? Math.round(contratado / approved.length) : 0, participacao: totalContratado ? Math.round((contratado / totalContratado) * 100) : 0 };
+  });
+  const topRenda = [...byType].sort((a, b) => b.contratado - a.contratado)[0];
+  const topAceitacao = [...byType].filter(t => t.orcamentos > 0).sort((a, b) => b.aceitacao - a.aceitacao || b.trabalhos - a.trabalhos)[0];
+  function downloadTypeReportCsv() {
+    const rows = [["tipo de servico", "trabalhos aprovados", "orcamentos", "aceitacao %", "contratado (R$)", "recebido (R$)", "a receber (R$)", "vencido (R$)", "ticket medio (R$)", "participacao %"],
+      ...byType.map(t => [t.label, String(t.trabalhos), String(t.orcamentos), String(t.aceitacao), br(t.contratado), br(t.recebido), br(t.aReceber), br(t.vencido), br(t.ticket), String(t.participacao)])];
+    const csv = rows.map(r => r.join(";")).join("\n");
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = `relatorio-por-tipo-servico-${today}.csv`; a.click();
+  }
+  function printTypeReport() {
+    const rows = byType.map(t => `<tr><td>${esc(t.label)}</td><td>${t.trabalhos}</td><td>${t.orcamentos}</td><td>${t.aceitacao}%</td><td>${fmtMoney(t.contratado)}</td><td>${fmtMoney(t.recebido)}</td><td>${fmtMoney(t.aReceber)}</td><td>${fmtMoney(t.vencido)}</td><td>${fmtMoney(t.ticket)}</td><td>${t.participacao}%</td></tr>`).join("");
+    printDoc(`Relatório por tipo de serviço — ${today}`, `
+      <h1>STUDIO MANAGER — Relatório completo por tipo de serviço</h1>
+      <p class="muted">Emitido em ${today} · dados reais do sistema · valores em R$</p>
+      <p><b>Maior renda:</b> ${topRenda ? `${esc(topRenda.label)} — ${fmtMoney(topRenda.contratado)} contratado (${topRenda.trabalhos} trabalhos)` : "—"}<br>
+      <b>Maior aceitação:</b> ${topAceitacao ? `${esc(topAceitacao.label)} — ${topAceitacao.aceitacao}% dos orçamentos aprovados (${topAceitacao.trabalhos} de ${topAceitacao.orcamentos})` : "—"}<br>
+      <b>Total contratado (todos os tipos):</b> ${fmtMoney(totalContratado)}</p>
+      <table><thead><tr><th>Tipo de serviço</th><th>Trabalhos</th><th>Orçamentos</th><th>Aceitação</th><th>Contratado</th><th>Recebido</th><th>A receber</th><th>Vencido</th><th>Ticket médio</th><th>Participação</th></tr></thead><tbody>${rows}</tbody></table>
+      <p class="muted">Aceitação = orçamentos aprovados ÷ orçamentos feitos do tipo. Ticket médio = contratado ÷ trabalhos aprovados. Vencido = parcelas com vencimento passado e ainda não pagas. Valores rateados por item quando o orçamento tem mais de um serviço.</p>`);
+  }
   return (<div>
     <div className="card"><h2>Contratos</h2>
       <table><thead><tr><th>Título</th><th>Cliente</th><th>Status</th><th>Valor</th><th>Versão</th><th></th></tr></thead>
-        <tbody>{d.contracts.map(c => <tr key={c.id}><td>{c.title}</td><td>{d.clients.find(x => x.id === c.clientId)?.name}</td><td>{c.status}</td><td>{c.amount != null ? fmtMoney(c.amount) : "—"}</td><td>v{c.currentVersion}</td><td>{c.status !== "assinado" && <button onClick={async () => { await post("/api/contracts", { action: "set-status", id: c.id, status: "assinado" }); reload(); }}>Marcar assinado → Kanban</button>}</td></tr>)}</tbody></table>
+        <tbody>{d.contracts.map(c => <tr key={c.id}><td>{c.title}</td><td>{d.clients.find(x => x.id === c.clientId)?.name}</td><td>{c.status}</td><td>{c.amount != null ? fmtMoney(c.amount) : "—"}</td><td>v{c.currentVersion}</td><td>{c.status !== "assinado" && <button onClick={async () => { await post("/api/contracts", { action: "set-status", id: c.id, status: "assinado" }); reload(); openContractPdf({ ...c, status: "assinado" }); }}>Marcar assinado → Kanban + PDF</button>} <button className="ghost" onClick={() => openContractPdf(c)}>PDF (imprimir / baixar)</button></td></tr>)}</tbody></table>
       <h3>Gerar contrato (a partir de cliente + modelo)</h3>
       <div className="grid cols2">
         <select value={form.clientId} onChange={e => setForm({ ...form, clientId: e.target.value })}><option value="">Cliente…</option>{d.clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
@@ -190,7 +278,12 @@ export function Contracts({ d, reload, actor }: { d: Overview; reload: () => voi
       <p>Faturamento contratado: <b>{fmtMoney(d.budgets.filter(b => b.status === "aprovado").reduce((a, b) => a + b.total, 0))}</b> · Recebido: <b>{fmtMoney(d.installments.reduce((a, i) => a + i.paidAmount, 0))}</b> · Clientes: <b>{d.clients.length}</b> · Compromissos: <b>{d.appointments.length}</b></p>
       <p>Serviços mais contratados: {d.services.map(sv => `${sv.name} (${d.budgets.filter(b => b.items.some(i => i.serviceId === sv.id)).length})`).join(" · ")}</p>
       <p>Produção por etapa: {PRODUCTION_STAGES.map(st => `${PRODUCTION_STAGE_LABELS[st]}: ${d.productionCards.filter(c => c.stage === st).length}`).join(" · ")}</p>
-      <p><button className="ghost" onClick={() => { const rows = [["cliente", "orcamento", "total"], ...d.budgets.map(b => [d.clients.find(c => c.id === b.clientId)?.name || "", String(b.id), br(b.total)])]; const csv = rows.map(r => r.join(";")).join("\n"); const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" })); a.download = "relatorio-studio-manager.csv"; a.click(); }}>Exportar CSV</button></p>
+      <h3>Relatório completo por tipo de serviço — balanço de renda e aceitação</h3>
+      <p><b>Maior renda:</b> {topRenda ? `${topRenda.label} — ${fmtMoney(topRenda.contratado)} contratado (${topRenda.trabalhos} trabalhos)` : "—"} · <b>Maior aceitação:</b> {topAceitacao ? `${topAceitacao.label} — ${topAceitacao.aceitacao}% dos orçamentos aprovados` : "—"}</p>
+      <table><thead><tr><th>Tipo</th><th>Trabalhos</th><th>Orçamentos</th><th>Aceitação</th><th>Contratado</th><th>Recebido</th><th>A receber</th><th>Vencido</th><th>Ticket médio</th><th>Participação</th></tr></thead>
+        <tbody>{byType.map(t => <tr key={t.cat}><td>{t.label}</td><td>{t.trabalhos}</td><td>{t.orcamentos}</td><td>{t.aceitacao}%</td><td>{fmtMoney(t.contratado)}</td><td>{fmtMoney(t.recebido)}</td><td>{fmtMoney(t.aReceber)}</td><td>{fmtMoney(t.vencido)}</td><td>{fmtMoney(t.ticket)}</td><td>{t.participacao}%</td></tr>)}</tbody></table>
+      <p className="muted">Aceitação = orçamentos aprovados ÷ orçamentos feitos do tipo. Ticket médio = contratado ÷ trabalhos aprovados. Vencido = parcelas com vencimento passado e ainda não pagas. Valores rateados por item quando o orçamento tem mais de um serviço.</p>
+      <p><button onClick={printTypeReport}>Imprimir / salvar em PDF</button> <button className="ghost" onClick={downloadTypeReportCsv}>Baixar relatório completo (CSV)</button></p>
     </div>
   </div>);
 }

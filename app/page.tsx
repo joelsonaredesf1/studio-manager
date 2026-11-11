@@ -53,7 +53,7 @@ export default function Home() {
             <p><input type="password" placeholder="Nova senha (mín. 6 caracteres)" value={newPw} onChange={e => setNewPw(e.target.value)} /> <button onClick={async () => { const r = await post("/api/auth", { action: "change-password", employeeId: user.id, currentPassword: "studio123", newPassword: newPw }); if (r.ok) { alert("Senha trocada."); reload(); } else alert(r.error); }}>Trocar senha</button></p>
           </div>)}
         <nav className="tabs">{TABS.map(t => <button key={t.key} className={tab === t.key ? "active" : ""} onClick={() => setTab(t.key)}>{t.label}</button>)}</nav>
-        {tab === "planner" && <Planner d={data} reload={reload} actor={user.name} />}
+        {tab === "planner" && <Planner d={data} reload={reload} actor={user.name} role={user.role} />}
         {tab === "clientes" && <Clients d={data} reload={reload} />}
         {tab === "financeiro" && <Finance d={data} reload={reload} actor={user.name} />}
         {tab === "whatsapp" && <WhatsApp d={data} reload={reload} />}

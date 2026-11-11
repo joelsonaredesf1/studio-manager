@@ -144,13 +144,20 @@ bloqueia `.env*`. Não mande senhas ou chaves no chat.
 > (US$ 20/mês) quando o movimento crescer. O plano gratuito do Supabase
 > pausa o projeto após 1 semana sem uso — basta reativar no painel.
 
+## Novidades — 11/11/2026 (pedido do dono após os primeiros testes)
+
+- **Relatório completo por tipo de serviço** (Contratos e Relatórios): os 13 tipos com trabalhos aprovados, orçamentos, taxa de aceitação, contratado, recebido, a receber, vencido, ticket médio e participação — com destaque para o tipo de maior renda e o de maior aceitação. Valores rateados por item quando o orçamento tem mais de um serviço. Botões para imprimir/salvar em PDF e baixar o relatório completo em CSV.
+- **Compromisso sem título:** o Planner não pede mais título — o compromisso usa o nome do serviço como título.
+- **Conflito de horário:** só o Administrador pode marcar mais de um evento no mesmo dia e horário (com confirmação). Os demais perfis são bloqueados, na tela e na API.
+- **Orçamento com vários serviços:** dá para marcar mais de um serviço por orçamento (checkbox); o total é a soma dos serviços menos o desconto. Ao aprovar, o agendamento, as parcelas e o Kanban trazem todos os serviços.
+- **Contrato em PDF:** cada contrato tem o botão "PDF (imprimir / baixar)"; ao marcar como assinado, o PDF abre automaticamente para imprimir ou salvar.
+
 ## Pendente / faltando (não está pronto — não inventar que está)
 
 - **Migração dos dados reais** do app original (clientes, orçamentos,
   financeiro) — exportar do app do Muse e importar no Supabase.
 - **Edição de compromissos/tarefas/clientes** na interface (criar/excluir
   existem; editar ainda não), edição de modelos de contrato na tela,
-  geração de **PDF** de contrato/orçamento (hoje só CSV de relatório),
   upload de arquivos de documentos, PWA/instalação, e as integrações
   externas listadas acima.
 - **Autenticação robusta:** o login atual é por nome de perfil + senha com

@@ -5,6 +5,8 @@ export async function POST(req: Request) {
   const b = await req.json().catch(() => ({}));
   const s = await loadOverview();
   if (b.action === "create-appointment") {
+    const clash = s.appointments.some(a => a.date === b.date && a.startTime === b.startTime);
+    if (clash && b.actorRole !== "administrador") return NextResponse.json({ ok: false, error: "Já existe um compromisso neste dia e horário. Só o Administrador pode marcar mais de um evento no mesmo horário." }, { status: 403 });
     const a = { id: nid(), title: b.title, clientName: b.clientName || "", clientId: b.clientId ?? null, serviceId: b.serviceId ?? null, googleEventId: null, origin: "studio", serviceType: b.serviceType || "ensaio", date: b.date, startTime: b.startTime, durationMin: Number(b.durationMin || 60), status: b.status || "confirmado", location: b.location || "", responsible: b.responsible || "", notes: b.notes || "", paymentAmount: b.paymentAmount ? Math.round(Number(b.paymentAmount) * 100) : null, paymentDueDate: b.paymentDueDate || null, paymentPaid: false };
     s.appointments.push(a); await saveOverview(s); return NextResponse.json({ ok: true, appointment: a });
   }

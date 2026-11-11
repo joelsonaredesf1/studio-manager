@@ -27,14 +27,15 @@ export async function POST(req: Request) {
     bud.status = b.status;
     if (b.status === "aprovado" && !bud.appointmentId) {
       const client = s.clients.find(c => c.id === bud.clientId);
-      const svc = bud.items[0];
-      const appt = { id: nid(), title: `${svc?.serviceName || "Serviço"} — ${client?.name || ""}`, clientName: client?.name || "", clientId: bud.clientId, serviceId: svc?.serviceId ?? null, googleEventId: null, origin: "studio", serviceType: "ensaio", date: b.eventDate || new Date().toISOString().slice(0, 10), startTime: b.startTime || "09:00", durationMin: 60, status: "confirmado", location: b.location || "", responsible: "", notes: `Gerado do orçamento #${bud.id}.`, paymentAmount: bud.total, paymentDueDate: null, paymentPaid: false };
+      const svcNames = bud.items.map((i: any) => i.serviceName).filter(Boolean).join(" + ") || "Serviço";
+      const firstSvc = s.services.find((x: any) => x.id === bud.items[0]?.serviceId);
+      const appt = { id: nid(), title: `${svcNames} — ${client?.name || ""}`, clientName: client?.name || "", clientId: bud.clientId, serviceId: bud.items[0]?.serviceId ?? null, googleEventId: null, origin: "studio", serviceType: firstSvc?.category || "ensaio", date: b.eventDate || new Date().toISOString().slice(0, 10), startTime: b.startTime || "09:00", durationMin: 60, status: "confirmado", location: b.location || "", responsible: "", notes: `Gerado do orçamento #${bud.id}.`, paymentAmount: bud.total, paymentDueDate: null, paymentPaid: false };
       s.appointments.push(appt); bud.appointmentId = appt.id;
       // Parcelas: entrada 40% + restante em 2 (regra simplificada; editar no Financeiro)
       const total = bud.total;
       const parts = [Math.round(total * 0.4), Math.round(total * 0.3), total - Math.round(total * 0.4) - Math.round(total * 0.3)];
-      parts.forEach((amt, i) => s.installments.push({ id: nid(), clientId: bud.clientId, clientName: client?.name || "", budgetId: bud.id, appointmentId: appt.id, title: i === 0 ? `Entrada — ${svc?.serviceName || ""}` : `Parcela ${i + 1}/3`, serviceName: svc?.serviceName || "", kind: i === 0 ? "entrada" : "parcela", number: i + 1, totalParts: 3, dueDate: b.eventDate || appt.date, amount: amt, paidAmount: 0, paidDate: null, paymentMethod: null, receiptInfo: "", registeredBy: "", cancelled: false }));
-      s.productionCards.push({ id: nid(), title: appt.title, clientId: bud.clientId, clientName: client?.name || "", serviceId: svc?.serviceId ?? null, serviceLabel: svc?.serviceName || "", serviceType: null, appointmentId: appt.id, budgetId: bud.id, stage: "ensaio-agendado", responsible: "", employeeId: null, stageDueDate: appt.date, eventDate: appt.date, amount: total, basis: "Orçamento aprovado.", notes: "" });
+      parts.forEach((amt, i) => s.installments.push({ id: nid(), clientId: bud.clientId, clientName: client?.name || "", budgetId: bud.id, appointmentId: appt.id, title: i === 0 ? `Entrada — ${svcNames}` : `Parcela ${i + 1}/3`, serviceName: svcNames, kind: i === 0 ? "entrada" : "parcela", number: i + 1, totalParts: 3, dueDate: b.eventDate || appt.date, amount: amt, paidAmount: 0, paidDate: null, paymentMethod: null, receiptInfo: "", registeredBy: "", cancelled: false }));
+      s.productionCards.push({ id: nid(), title: appt.title, clientId: bud.clientId, clientName: client?.name || "", serviceId: bud.items[0]?.serviceId ?? null, serviceLabel: svcNames, serviceType: null, appointmentId: appt.id, budgetId: bud.id, stage: "ensaio-agendado", responsible: "", employeeId: null, stageDueDate: appt.date, eventDate: appt.date, amount: total, basis: "Orçamento aprovado.", notes: "" });
     }
     await saveOverview(s);
     return NextResponse.json({ ok: true, budget: bud });
