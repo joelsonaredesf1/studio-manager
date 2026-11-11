@@ -31,10 +31,11 @@ export default function Home() {
   }
 
   return (<>
-    <header className="top"><h1>STUDIO <span>MANAGER</span></h1><p className="muted" style={{ color: "#ccc", margin: "4px 0 0" }}>Gestão para estúdio de fotografia · versão para hospedagem (Next.js + Supabase)</p></header>
+    <header className="top"><img src="/logo.png" alt="Studio Werner" style={{ height: 54 }} /><p className="muted" style={{ color: "#ccc", margin: "6px 0 0" }}>Gestão para estúdio de fotografia</p></header>
     <main>
       {!user ? (
         <div className="card" style={{ maxWidth: 480 }}>
+          <img src="/logo-escura.png" alt="Studio Werner" style={{ height: 64, marginBottom: 8 }} />
           <h2>Entrar</h2>
           <p className="muted">Perfis iniciais: Administrador, Gerente, Atendimento e Fotógrafo. Senha inicial de todos: <b>studio123</b> — troque no primeiro acesso em Publicação → Senhas e acesso.</p>
           <p><input placeholder="Nome do perfil" value={login.name} onChange={e => setLogin({ ...login, name: e.target.value })} style={{ width: "100%" }} /></p>
@@ -61,7 +62,7 @@ export default function Home() {
         {tab === "contratos" && <Contracts d={data} reload={reload} actor={user.name} />}
         {tab === "publicacao" && <Release d={data} reload={reload} actor={user.name} />}
       </>) : <p>Carregando…</p>}
-      <footer className="muted"><p>Studio Manager — versão separada para hospedagem externa. O app original do Muse não foi alterado. Google Agenda e WhatsApp aparecem como “Não conectado” até a integração real ser configurada — nada aqui finge integração.</p></footer>
+      <footer className="muted"><p>Studio Werner — versão separada para hospedagem externa. O app original do Muse não foi alterado. Google Agenda e WhatsApp aparecem como “Não conectado” até a integração real ser configurada — nada aqui finge integração.</p></footer>
     </main>
   </>);
 }

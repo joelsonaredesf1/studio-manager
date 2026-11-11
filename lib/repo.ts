@@ -1,4 +1,4 @@
-// Camada de persistência do Studio Manager (versão para hospedagem).
+// Camada de persistência do Studio Werner (versão para hospedagem).
 //
 // Dois modos, decididos por DATABASE_URL:
 //  - Postgres configurado: TODAS as rotas leem/escrevem no Postgres via Drizzle.

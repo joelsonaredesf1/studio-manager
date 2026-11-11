@@ -196,7 +196,7 @@ export function Contracts({ d, reload, actor }: { d: Overview; reload: () => voi
     const client = d.clients.find(x => x.id === c.clientId);
     const body = esc(c.body || "Contrato sem texto.").replaceAll("\n", "<br>");
     printDoc(`Contrato #${c.id} — ${client?.name || ""}`, `
-      <h1>STUDIO MANAGER — Contrato de prestação de serviços fotográficos</h1>
+      <img src="/logo-escura.png" style="height:52px"><h1>STUDIO WERNER — Contrato de prestação de serviços fotográficos</h1>
       <p class="muted">Contrato #${c.id} · versão ${c.currentVersion} · status: ${c.status} · emitido em ${c.date || ""}</p>
       <table>
         <tr><th>Cliente</th><td>${esc(client?.name || "—")}</td></tr>
@@ -207,8 +207,8 @@ export function Contracts({ d, reload, actor }: { d: Overview; reload: () => voi
       </table>
       <h2>Contrato</h2>
       <p>${body}</p>
-      <div class="sign"><div>Contratante — ${esc(client?.name || "")}</div><div>Contratado — Studio Manager</div></div>
-      <p class="muted" style="margin-top:8mm">Documento gerado pelo Studio Manager em ${todayBR()}. Guarde uma via assinada por cada parte.</p>`);
+      <div class="sign"><div>Contratante — ${esc(client?.name || "")}</div><div>Contratado — Studio Werner</div></div>
+      <p class="muted" style="margin-top:8mm">Documento gerado pelo Studio Werner em ${todayBR()}. Guarde uma via assinada por cada parte.</p>`);
   }
   // Relatório completo por tipo de serviço (13 categorias): renda e aceitação.
   const totalContratado = d.budgets.filter(b => b.status === "aprovado").reduce((a, b) => a + b.total, 0);
@@ -244,7 +244,7 @@ export function Contracts({ d, reload, actor }: { d: Overview; reload: () => voi
   function printTypeReport() {
     const rows = byType.map(t => `<tr><td>${esc(t.label)}</td><td>${t.trabalhos}</td><td>${t.orcamentos}</td><td>${t.aceitacao}%</td><td>${fmtMoney(t.contratado)}</td><td>${fmtMoney(t.recebido)}</td><td>${fmtMoney(t.aReceber)}</td><td>${fmtMoney(t.vencido)}</td><td>${fmtMoney(t.ticket)}</td><td>${t.participacao}%</td></tr>`).join("");
     printDoc(`Relatório por tipo de serviço — ${today}`, `
-      <h1>STUDIO MANAGER — Relatório completo por tipo de serviço</h1>
+      <img src="/logo-escura.png" style="height:52px"><h1>STUDIO WERNER — Relatório completo por tipo de serviço</h1>
       <p class="muted">Emitido em ${today} · dados reais do sistema · valores em R$</p>
       <p><b>Maior renda:</b> ${topRenda ? `${esc(topRenda.label)} — ${fmtMoney(topRenda.contratado)} contratado (${topRenda.trabalhos} trabalhos)` : "—"}<br>
       <b>Maior aceitação:</b> ${topAceitacao ? `${esc(topAceitacao.label)} — ${topAceitacao.aceitacao}% dos orçamentos aprovados (${topAceitacao.trabalhos} de ${topAceitacao.orcamentos})` : "—"}<br>

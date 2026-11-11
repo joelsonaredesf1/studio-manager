@@ -1,4 +1,4 @@
-// Seed do Postgres para o Studio Manager (versão para hospedagem).
+// Seed do Postgres para o Studio Werner (versão para hospedagem).
 // Uso:  DATABASE_URL="postgres://..." npm run db:seed
 // Cria as 28 tabelas (drizzle/0001_init.sql) se preciso e insere os dados
 // iniciais de forma idempotente (segunda chamada não duplica): 4 perfis com

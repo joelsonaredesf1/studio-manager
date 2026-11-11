@@ -1,4 +1,4 @@
-# Studio Manager — versão para hospedagem externa
+# Studio Werner — versão para hospedagem externa
 
 Projeto **novo e separado** do app original do Muse (`studio-manager-fase-2-planner`).
 O app original **não foi alterado** — este projeto é uma portabilidade para
@@ -125,7 +125,7 @@ bloqueia `.env*`. Não mande senhas ou chaves no chat.
 
 1. Envie este projeto para o GitHub:
    ```bash
-   git init && git add . && git commit -m "Studio Manager — versão para hospedagem"
+   git init && git add . && git commit -m "Studio Werner — versão para hospedagem"
    git branch -M main
    git remote add origin https://github.com/joelsonaredesf1/studio-manager.git
    git push -u origin main
